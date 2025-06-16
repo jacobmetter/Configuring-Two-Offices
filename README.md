@@ -76,5 +76,115 @@ On DSW B1 and B2, I will instead configure LCAP, which is similar to PAgP, but i
 
 ![image](https://github.com/user-attachments/assets/c178ce5d-5510-41aa-8b16-d845cd939ebe)
 
+### Step 3: Configure IPv4 Address on each interface
+
+Use the following table to configure each router and switch with the approprate IP address and subnet mask, as well as loopback interface. Then close all unused ports.
+
+    int [INTERFACE]
+    ip address [Enter IP address] [subnet mask]
+    no shut
+    exit
+    int loopback 0
+    ip address [Loopback address] [255.255.255.255]
+    no shut
+    exit
+    int range [interface ranges not being used]
+    shut
+    exit
+
+for Verification use
+
+    do show ip int br
+
+![image](https://github.com/user-attachments/assets/70532e28-da52-4f63-80b1-112559024738)
+
+
+For the access layer switches, we also need to configure a default gateway which will allow us to connect to these devices via SSH, then add their ip address to Vlan 99
+
+    ip default-gateway 10.0.0.1
+    int vlan 99
+    ip address [ip address] [subnet]
+    exit
+    
+![image](https://github.com/user-attachments/assets/457f072f-d00a-40bf-ac81-fa5454746d12)
+
+IPv4 connections
+
+![image](https://github.com/user-attachments/assets/860d38ec-d48c-45ef-ada1-5b8669af89bf)
+
+Interface connections
+
+### Step 4: Configuring HSRP
+
+HSRP is the Hot Standby Router Protocol. It acts as a failsafe in the event that if one router goes down, there is redundency in the network so one can fail over to the other without a loss in connection. To do this, you will need to configure HSRP on each distribution layer switch (DSW switch) and configure on each of our subnets (Vlan 10,20,30,40 and 99). The command structure is the same, but inputs are slightly different
+
+    int vlan [VLAN]
+    ip address [ip address] [subnet]
+    standby ver 2
+    standby [number] ip [Virtual IP (VIP)]
+    standyby [number] priority [105 or 95]
+    standby [number] preempt
+
+With HSRP, assigning a priority allows the router to decide which router is the primary, and which one is the backup. Its also important that each vlan is on a different standby number. For example, with vlan 10, the standby number will be 1, but for vlan 20, the standby number will be 2. This allows for deconfliciton between vlans. For Vlans 10 and 99 I made the active router A1/B1 and for vlan 20,30, and 40 router A2/B2 will be the primary. So their priority will be 105, while the backup router will be 95.
+
+![image](https://github.com/user-attachments/assets/6325c2be-e28f-46ac-97ae-5f2232f29bd5)
+
+for Verification
+
+    do show standby brief
+    
+![image](https://github.com/user-attachments/assets/5229d8ef-a596-4c14-8255-d43c8b062889)
+
+### Step 5: Configure Spanning Tree Protocol
+
+We will be configuring RSTP on all distribution and access layer switches. as well as enabling portfast and BPDU Guard on all end host interfaces. We will need to insure that the root bridge is alligned with the HSRP active router. So our layer 2 and layer 3 connections are going the same direction. So for Vlan 10 and 99, DSW A1/B1 will have the lowest STP priority. and while DSW A2 and B2 will have lowest STP priority for 20,30, and 40
+
+    spanning-tree mode rapid-pvst
+    spanning-tree vlan 10,99 priority 0
+    spanning-tree vlan 20,30,40 priority 4096
+
+For DSW A2/B2 it will be the opposite
+
+    spanning-tree mode rapid-pvst
+    spanning-tree vlan 20,30,40 priority 0
+    spanning-tree vlan 10,99 priority 4096
+
+![image](https://github.com/user-attachments/assets/22fde282-1969-4bdc-9abe-940586e5926e)
+
+for verification:
+
+    do show spanning-tree
+    
+![image](https://github.com/user-attachments/assets/22a6a20c-21a7-4a94-bccb-c97cca06898e)
+
+For configuring portfast and BPDU Guard, go to all ports on end hosts and use the following commands These commands will only be on the access layer switches .
+
+    int f0/1
+    spanning-tree portfast
+    spanning-tree bpduguard enable
+    (optional) spanning-tree portfast trunk
+
+![image](https://github.com/user-attachments/assets/b92fc69b-797b-4c86-bfbf-16f5d668ba09)
+
+### Step 6: Static and Dynamic Routing
+First we will be configuring OSPF on R1 and all core and distribution switches. We will use a process ID of 1 with an area of 0. We will also configure each device's router ID (RID) to match the loopback interface ID. All loopback interfaces should be passive interfaces.
+
+    router ospf 1
+    router-ID [loopback IP]
+    passive-interface l0
+    int l0
+    ip ospf 1 area 0
+    int range [LAN facing interfaces]
+    ip ospf 1 area 0
+    ip ospf network point-to-point
+
+![image](https://github.com/user-attachments/assets/7ed3a4e8-b0b8-4965-8f54-e6b21ec2d89a)
+
+Verification:
+
+    show ip ospf neighbor
+
+![image](https://github.com/user-attachments/assets/3e499f53-41df-4634-bdb3-939df06c3b01)
+
 
     
