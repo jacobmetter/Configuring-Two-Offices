@@ -10,7 +10,7 @@ This is a project where I configure two office subnets consisting of core switch
 3. Configure Layer 3 EtherChannel, ip address, and HSRP
 4. Configure Spanning Tree Protocol (STP)
 5. Static and dynamic routing
-6. Network Services: DHCP, DNS, NTP, SNMP, Syslog, FTP, SSH, and NAT
+6. Network Services: DHCP, DNS, SSH, and NAT
 7. Security: ACLs and L2 Security Features
 8. Configure IPv6
 9. Configure Wireless
@@ -293,3 +293,47 @@ Then on all devices make sure they can get to your domain with the following com
 
     ip domain name anydomain.com
     ip name-server 10.5.0.4
+
+Step 9: Confiuring SSH
+Configuring SSH is very important, as it allows us to remote into any of our devices via SSH, in order to make any changes as necessary. Use the following commands on each device to set up SSH connections.
+
+    ip domain name anydomain.com
+    crypto key generate rsa 
+    2048
+    ip ssh version 2
+    line vty 0 15
+    transport input ssh
+    login local
+    logging synchronous
+
+Step 10 Configure NAT
+First we will configure a static NAT to enable hosts on the internet to access SRV1 via the ip address 203.0.113.113. On R1 confugre with the following commands, be sure to configure the inside facing interfaces with IP nat inside, and outside facing interfaces with IP nat outside commands:
+
+    ip nat inside source static 10.5.0.4 203.0.113.133
+    int range g0/0/0,g0/1/0
+    ip nat outside
+    int range g0/0-1
+    ip nat inside
+    exit
+
+Next we need to configure dynamic NAT, also known as PAT to translate inside IP addresses to access the internet. We will need to make standard ACLs to apprropriately address the inside addresses with outside addreses on R1, our internet facing router. Our NAT pool will be named POOL1 with a range of 203.0.113.200-203.0.113.207/29
+
+i. Office A PCs: 10.1.0.0/24
+ii. Office A Phones: 10.2.0.0/24
+iii. Office B PCs: 10.3.0.0/24
+iv. Office B Phones: 10.4.0.0/24
+v. Wi-Fi: 10.6.0.0/24
+
+    access-list 1 permit 10.1.0.0 0.0.0.0.255
+    access-list 1 permit 10.2.0.0 0.0.0.0.255
+    access-list 1 permit 10.3.0.0 0.0.0.0.255
+    access-list 1 permit 10.4.0.0 0.0.0.0.255
+    access-list 1 permit 10.6.0.0 0.0.0.0.255
+    ip nat pool POOL1 203.0.133.200-203.0.133.207 netmask 255.255.255.248
+    ip nat insdie source list 1 pool POOL1 overload
+
+to verify, go on one of the PCs and try to ping one of the domain names we created. For this I pinged google.com
+
+![image](https://github.com/user-attachments/assets/34163de4-ac76-4c86-b307-64cb93cc7945)
+
+and success, out PAT is correctly configured.
