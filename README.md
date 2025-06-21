@@ -172,6 +172,10 @@ First we will be configuring OSPF on R1 and all core and distribution switches. 
     router ospf 1
     router-ID [loopback IP]
     passive-interface l0
+    passive-interface vlan 10
+    passive-interface vlan 20
+    passive-interface vlan 30
+    passive-interface vlan 40
     int l0
     ip ospf 1 area 0
     int range [LAN facing interfaces]
@@ -186,5 +190,106 @@ Verification:
 
 ![image](https://github.com/user-attachments/assets/3e499f53-41df-4634-bdb3-939df06c3b01)
 
+## Static routing
 
-    
+Next we will make one static route on R1 internet facing interfaces and one floating route to the internet. 
+
+    ip route 0.0.0.0 0.0.0.0 203.0.113.1
+    ip route 0.0.0.0 0.0.0.0 203.0.113.5 2
+
+## Step 7: Configuring DHCP
+
+We will be configuring DHCP on R1 for each vlan in each office the following pools will be as follows with the first 10 addresses as excluded addresses:
+
+a. Pool: A-Mgmt
+i. Subnet: 10.0.0.0/28
+ii. Default gateway: 10.0.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+v. WLC: 10.0.0.7
+
+b. Pool: A-PC
+i. Subnet: 10.1.0.0/24
+ii. Default gateway: 10.1.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+
+c. Pool: A-Phone
+i. Subnet: 10.2.0.0/24
+ii. Default gateway: 10.2.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+
+d. Pool: B-Mgmt
+i. Subnet: 10.0.0.16/28
+ii. Default gateway: 10.0.0.17
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+v. WLC: 10.0.0.7
+
+e. Pool: B-PC
+i. Subnet: 10.3.0.0/24
+ii. Default gateway: 10.3.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+
+f. Pool: B-Phone
+i. Subnet: 10.4.0.0/24
+ii. Default gateway: 10.4.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+g. Pool: Wi-Fi
+
+i. Subnet: 10.6.0.0/24
+ii. Default gateway: 10.6.0.1
+iii. Domain name: anydomain.com
+iv. DNS server: 10.5.0.4 (SRV1)
+
+First for the excluded addresses on R1:
+
+    ip dhcp excluded-address 10.0.0.1 10.0.0.10
+    ip dhcp excluded-address 10.1.0.1 10.1.0.10
+    ip dhcp excluded-address 10.2.0.1 10.2.0.10
+    ip dhcp excluded-address 10.0.0.17 10.0.0.26
+    ip dhcp excluded-address 10.3.0.1 10.3.0.10
+    ip dhcp excluded-address 10.4.0.1 10.4.0.10
+    ip dhcp excluded-address 10.6.0.1 10.6.0.10
+
+Next for configuring the DHCP pools for each vlan use these commands for each vlan:
+
+    ip dhcp pool [NAME OF POOL]
+    network 10.x.x.x 255.255.255.0
+    default-router 10.x.x.x
+    dns-server 10.5.0.4
+    domain-name: anydomain.com
+
+![image](https://github.com/user-attachments/assets/54ee1088-5edd-4f3b-88ae-b726e9891d28)
+
+next we need to configure the distribution switches as DCHP relay agents in order for the DHCP pool to reach the acess layer and user level computers. On the interface that recieves DHCP request messages needs to have the following helper address. This must be configured on the interface that recieves the broadcast DHCP from clients.
+
+    interface vlan 10
+    ip helper-address 10.0.0.76
+    interface vlan 20
+    ip helper-address 10.0.0.76
+    interface vlan 30
+    ip helper-address 10.0.0.76
+    interface vlan 40
+    ip helper-address 10.0.0.76
+    interface vlan 99
+    ip helper-address 10.0.0.76
+
+now the PC should be getting IP addresses from R1 to confirm, go onto any of the computers and verify their IP address is from R1.
+
+![image](https://github.com/user-attachments/assets/b0fbf3af-c9f6-4e75-b841-f787efd2c026)
+
+As we can see, we are getting the DHCP ip address from the 10.3.0.x subnet from R1.
+
+Step 8: Configuring DNS
+First we need to go on our SRV1 and enable DNS and configure a few DNS entries. go into the SRV1 and turn on DNS in the DNS tab, make a new A Record and add youtube.com at 152.250.31.93 and google.com at 152.250.31.93
+
+![image](https://github.com/user-attachments/assets/f14499e1-033d-4b66-856a-6c131ed239ba)
+
+Then on all devices make sure they can get to your domain with the following commands:
+
+    ip domain name anydomain.com
+    ip name-server 10.5.0.4
