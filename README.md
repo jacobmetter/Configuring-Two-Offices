@@ -1,7 +1,7 @@
 # Configuring Two Offices - Cisco 
 This is a project where I configure two office subnets consisting of core switches, distribution switches, access layer switches, routers, end devices, and wireless devices in Cisco Packet Tracer.
 
-![image](https://github.com/user-attachments/assets/b266e798-fe29-409c-8d29-bcb847300c13)
+![image](https://github.com/user-attachments/assets/95809554-9ea2-4d4c-81e2-3269631dfb57)
 
 
 # Objectives
