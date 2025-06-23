@@ -1,4 +1,4 @@
-# Configuring Two Offices - Cisco 
+# Cisco Office Configuration Project
 This is a project where I configure two office subnets consisting of core switches, distribution switches, access layer switches, routers, end devices, and wireless devices in Cisco Packet Tracer.
 
 ![image](https://github.com/user-attachments/assets/95809554-9ea2-4d4c-81e2-3269631dfb57)
@@ -12,8 +12,6 @@ This is a project where I configure two office subnets consisting of core switch
 5. Static and dynamic routing
 6. Network Services: DHCP, DNS, SSH, and NAT
 7. Security: ACLs and L2 Security Features
-8. Configure IPv6
-9. Configure Wireless
 
 ## Step 1: Initial Setup
 The first thing I need to do is set up each device to have its own hostname that follows the naming convention in the picture above. Then we need to create a username, password, and enable password for each device. for simplicity, each device's username will be _admin_ and their password and enable password will both be _cisco_ use the following commands on each device:
@@ -294,7 +292,7 @@ Then on all devices make sure they can get to your domain with the following com
     ip domain name anydomain.com
     ip name-server 10.5.0.4
 
-Step 9: Confiuring SSH
+## Step 9: Confiuring SSH
 Configuring SSH is very important, as it allows us to remote into any of our devices via SSH, in order to make any changes as necessary. Use the following commands on each device to set up SSH connections.
 
     ip domain name anydomain.com
@@ -306,7 +304,7 @@ Configuring SSH is very important, as it allows us to remote into any of our dev
     login local
     logging synchronous
 
-Step 10 Configure NAT
+## Step 10: Configure NAT
 First we will configure a static NAT to enable hosts on the internet to access SRV1 via the ip address 203.0.113.113. On R1 confugre with the following commands, be sure to configure the inside facing interfaces with IP nat inside, and outside facing interfaces with IP nat outside commands:
 
     ip nat inside source static 10.5.0.4 203.0.113.133
@@ -337,3 +335,48 @@ to verify, go on one of the PCs and try to ping one of the domain names we creat
 ![image](https://github.com/user-attachments/assets/34163de4-ac76-4c86-b307-64cb93cc7945)
 
 and success, out PAT is correctly configured.
+
+## Step 11: Layer 2 Security Features
+
+Next we will configure layer 2 security features on all of our access layer switches to include port security, which allows only minimum number of MAC addresses on each port, DHCP Snooping on all vlans in each LAN which prevents unauthorized devices from acting as DHCP servers in our network, and finally Dynamic ARP Inspection (DAI) which validates ARP packets to prevent ARP spoofing attacks.
+
+### Port Security
+Port security is configured directly on the interface facing the end hosts, for all of our cases, int f0/1. This should be configured on ASW-A1, ASW-B1, and ASW-B3.
+
+    int f0/1
+    switchport port-security
+    switchport port-security violation restrict
+    switchport port-security mac-address sticky
+
+interfaces ASW-A2,ASW-A3, and ASW-B2 need an additional command to allow them to have two port connections because they have two devices attached to their int f0/1
+
+    switchport port-security maximum 2
+
+### DHCP Snooping
+For this we need to do the following on all access layer switches:
+
+1. Enable it for all active vlans in each LAN
+2. Trust the appropriate ports.
+3. Disable insertion of DHCP Option 82.
+4. Set a DHCP rate limit of 15 pps on active untrusted ports. This prevents packets coming from an untrusted port to a limit of 15 pps.
+5. Set a higher limit (100 pps) on ASW-A1’s connection to WLC1.
+
+       ip dhcp snooping
+       ip dhcp snooping vlan 10,20,30,40,99
+       ip dhcp snooping information option
+       int range g0/1-2
+       ip dhcp snooping trust
+       int f0/1
+       ip dhcp snooping limit rate 15
+       int f0/2 ip dhcp snooping limit rate 100
+
+### Dynamic ARP Inspection
+DAI only needs to be enabled per vlan. It does not need to be enabled globally.
+
+    ip arp inspection 10,20,30,40,99
+    ip arp inspection validate dst-mac src-mac ip
+    int range g0/1-2
+    ip arp inspection trust
+
+## Conclusion
+After all of this we have fully configured two offices within different VLANs as well as all IP connections and routes, we configured hostnames, VLANS, OSPF, Static routes, STP, HSRP, NAT, SSH, various layer two security features As well as documenting all of our progress and verifying everything worked along the way. 
